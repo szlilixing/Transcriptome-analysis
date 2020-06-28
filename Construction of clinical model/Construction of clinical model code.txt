@@ -1,0 +1,498 @@
+###The following codes include the construction and validation of clinical model
+
+rm(list = ls())
+setwd("C:\\Users\\szlil\\Desktop\\LASSO-COXX")
+###1.Prepare Data
+exprSet <- read.table("TCGA-LIHC-tpm-Tumor.txt",sep = "\t",quote = "\"'")
+meta <- read.table("clinic_lasso.txt",sep = "\t",quote = "\"'")
+
+z <- read.table("selectedgenes.txt",sep = "\t",quote = "\"'",header = T)
+z$Gene <- gsub("\\.","-",z$Gene)
+rownames(z) <- z$Gene
+
+zz <- exprSet[rownames(z),]
+table(rowSums(zz)==0)
+write.table(zz,"zzz.txt",sep = "\t",quote = F)
+
+frequence.gene <- ""
+frequence.gene <- as.data.frame(rep(0,19))
+rownames(frequence.gene) <- rownames(zz)
+frequence.gene$coef <- rep(0,19)
+colnames(frequence.gene)[1] <- "frequence"
+frequence.gene$gene <- rownames(frequence.gene)
+
+library(survival)
+fit_sur=Surv(meta$time,meta$status)
+str(fit_sur)
+
+###Using R package 'caret' to divide the dataset into training and testing cohorts
+###If possible, it's better to divide the dataset into training and testing cohorts.
+library(caret)
+set.seed(777)
+sam<- createDataPartition(meta$event, p = .70,list = FALSE)
+head(sam)
+train <- zz[,sam]
+test <- zz[,-sam]
+train_meta <- meta[sam,]
+test_meta <- meta[-sam,]
+
+###2.Constructing clinical model with LASSO method
+x=t(zz)
+colSums(meta)
+fit_sur=Surv(meta$time,meta$status)
+y=fit_sur
+y
+library(glmnet)
+library(ggplot2)
+model_lasso <- glmnet(x, y, family="cox", nlambda=1000, alpha=1)
+print(model_lasso)
+plot(model_lasso, xvar = "norm", label = TRUE)
+plot(model_lasso, xvar="lambda", label=TRUE)
+for (j in 1:1000) {
+  set.seed(j)
+  cv_fit <- cv.glmnet(x, y, family="cox", nfold = 10)
+  ###plot(cv_fit)
+  coef.min = coef(cv_fit,s = "lambda.min")
+  coef.min.out <- coef.min[which(coef.min!=0),]
+  ###coef.min.out
+  ###Extract genes and coefficients
+  sig.out <- ""
+  sig.out <- as.data.frame(coef.min.out) 
+  sig.out$gene <- rownames(sig.out)
+  ###Counting
+  for ( i in 1:nrow(sig.out)) {
+    l <- which(frequence.gene$gene == sig.out[i,"gene"])
+    frequence.gene[l,"frequence"] <- frequence.gene[l,"frequence"] + 1
+    frequence.gene[l,"coef"] <- frequence.gene[l,"coef"] + sig.out[i,"coef.min.out"]
+  }
+}
+
+total <- ""
+total <- as.data.frame(rep(0,19))
+rownames(total) <- rownames(zz)
+total$coef <- rep(0,19)
+colnames(total)[1] <- "frequence"
+total$gene <- rownames(total)
+total
+
+for (k in 1:1000) {
+  set.seed(k)
+  cv_fit <- cv.glmnet(x, y, family="cox", nfold = 10)
+  ###plot(cv_fit)
+  coef.min = coef(cv_fit,s = "lambda.min")
+  coef.min.out <- coef.min[which(coef.min!=0),]
+  ###coef.min.out
+  ###Extract genes and coefficients
+  sig.out <- ""
+  sig.out <- as.data.frame(coef.min.out) 
+  sig.out$gene <- rownames(sig.out)
+  ###counting
+  for ( i in 1:nrow(sig.out)) {
+    l <- which(total$gene == sig.out[i,"gene"])
+    total[l,"frequence"] <- total[l,"frequence"] + 1
+    total[l,"coef"] <- total[l,"coef"] + sig.out[i,"coef.min.out"]
+    total[l,k+3] <- sig.out[i,"coef.min.out"]
+  }
+}
+write.table(total,"totaltgenes-19.txt",sep = "\t",quote = F)
+write.table(frequence.gene,"frequence.gene-19.txt",sep = "\t",quote = F)
+##### We can obtain result of 1000 LASSO iterations by previous process.
+
+
+
+###3.Constructing clinical model according to the average coefficients of seleceted genes and validation
+x<-as.data.frame(x)
+###FNDC4        0.004549632
+###RNF186	      0.10682142
+###PKIB         0.006859035
+###MIR3609	   -0.215215851
+###PLEKHA4      0.004534235
+###ANKRD24     -0.05629549
+###CEACAM19	   -0.009974964
+###DIO3OS      -0.050176196
+###UBASH3A	   -0.045030993
+###KCNE5	      0.017597103
+###PCAT6        0.006024639
+###CCDC184	   -0.503357872
+###XCR1        -0.059899642
+
+xx <- ""
+xx <- t(x)
+xx <- as.data.frame(x)
+xx$risk <-(0.004549632*xx$FNDC4+0.10682142*xx$RNF186+0.006859035*xx$PKIB-0.215215851*xx$MIR3609+0.004534235*xx$PLEKHA4-0.05629549*xx$ANKRD24-0.009974964*xx$CEACAM19-0.050176196*xx$DIO3OS-0.045030993*xx$UBASH3A+0.017597103*xx$KCNE5+0.006024639*xx$PCAT6-0.503357872*xx$CCDC184-0.059899642*xx$XCR1)
+xx <- cbind(xx,meta)
+library(survminer)
+#####Determine the optimal cutpoint of variables
+res.cutx <- surv_cutpoint(xx, time = "time", event = "status",
+                          variables = "risk")
+summary(res.cutx)
+#####Plot cutpoint for DEPDC1
+plot(res.cutx, "risk", palette = "npg")
+#####Categorize variables
+res.catx <- surv_categorize(res.cutx)
+head(res.catx)
+####Fit survival curves and visualize
+library("survival")
+fit <- survfit(Surv(time, status) ~risk, data = res.catx)
+ggsurvplot(fit, data = res.catx, risk.table = TRUE, conf.int = TRUE,pval = TRUE)
+###ROC Plot
+library(ROCR)
+summary(xx)
+#####time-dependent ROC-ICGC
+x01 <- ""
+x01 <- data.frame(xx$time)
+colnames(x01) <- "time"
+x01$event <- xx$event
+x01$risk <- xx$risk
+
+re011 <- data.frame(x01)
+re011[re011$time>24,][2] <- 0
+re021 <- data.frame(x01)
+re021[re021$time>36,][2] <- 0
+re031 <- data.frame(x01)
+re031[re031$time>48,][2] <- 0
+re041 <- data.frame(x01)
+re041[re041$time>60,][2] <- 0
+
+pred_min041 <- prediction(re041$risk,re041$event)
+pred_min031 <- prediction(re031$risk,re031$event)
+pred_min021 <- prediction(re021$risk,re021$event)
+pred_min011 <- prediction(re011$risk,re011$event)
+
+
+
+auc_min011 = performance(pred_min011,"auc")@y.values[[1]]
+perf_min011 <- performance(pred_min011,"tpr","fpr")
+auc_min021 = performance(pred_min021,"auc")@y.values[[1]]
+perf_min021 <- performance(pred_min021,"tpr","fpr")
+auc_min031 = performance(pred_min031,"auc")@y.values[[1]]
+perf_min031 <- performance(pred_min031,"tpr","fpr")
+auc_min041 = performance(pred_min041,"auc")@y.values[[1]]
+perf_min041 <- performance(pred_min041,"tpr","fpr")
+
+plot(perf_min011,colorize=FALSE, col="blue") 
+plot(perf_min021,colorize=FALSE, col="red",add = T)
+plot(perf_min031,colorize=FALSE, col="pink",add = T) 
+plot(perf_min041,colorize=FALSE, col="orange",add = T)
+lines(c(0,1),c(0,1),col = "gray", lty = 4 )
+text(0.8,0.2, labels = paste0("AUC = ",round(auc_min011,3)),col = "blue")
+text(0.8,0.3, labels = paste0("AUC = ",round(auc_min021,3)),col = "red")
+text(0.8,0.4, labels = paste0("AUC = ",round(auc_min031,3)),col = "pink")
+text(0.8,0.5, labels = paste0("AUC = ",round(auc_min041,3)),col = "orange")
+
+###test
+##xx1 <- ""
+##xx1 <- t(test)
+##xx1 <- as.data.frame(xx1)
+##xx1$risk <-(0.00343689280055532*xx1$FNDC4+0.099434955*xx1$RNF186-0.130245215*xx1$MIR3609-0.049604058*xx1$CEACAM19-0.021052892*xx1$DIO3OS-0.056717647*xx1$NLRC3-0.092357055*xx1$UBASH3A+0.051349453*xx1$KCNE5-0.043788892*xx1$TAPT1-0.27678815*xx1$CCDC184-0.024289416*xx1$CASQ2)
+##xx1 <- cbind(xx1,test_meta)
+##library(survminer)
+#####3.1.2 Determine the optimal cutpoint of variables
+##res.cutx1 <- surv_cutpoint(xx1, time = "time", event = "status",
+##                          variables = "risk")
+##summary(res.cutx1)
+#####Plot cutpoint for DEPDC1
+##plot(res.cutx1, "risk", palette = "npg")
+#####Categorize variables
+##res.catx1 <- surv_categorize(res.cutx1)
+##head(res.catx1)
+####Fit survival curves and visualize
+##library("survival")
+##fit1 <- survfit(Surv(time, status) ~risk, data = res.catx1)
+##ggsurvplot(fit1, data = res.catx1, risk.table = TRUE, conf.int = TRUE,pval = TRUE)
+##x0 <- ""
+##x0 <- data.frame(xx1$time)
+##colnames(x0) <- "time"
+##x0$event <- xx1$event
+##x0$risk <- xx1$risk
+
+##re01 <- data.frame(x0)
+##re01[re01$time>24,][2] <- 0
+##re02 <- data.frame(x0)
+##re02[re02$time>36,][2] <- 0
+##re03 <- data.frame(x0)
+##re03[re03$time>48,][2] <- 0
+##re04 <- data.frame(x0)
+##re04[re04$time>60,][2] <- 0
+
+##pred_min04 <- prediction(re04$risk,re04$event)
+##pred_min03 <- prediction(re03$risk,re03$event)
+##pred_min02 <- prediction(re02$risk,re02$event)
+##pred_min01 <- prediction(re01$risk,re01$event)
+
+
+
+##auc_min01 = performance(pred_min01,"auc")@y.values[[1]]
+##perf_min01 <- performance(pred_min01,"tpr","fpr")
+##auc_min02 = performance(pred_min02,"auc")@y.values[[1]]
+##perf_min02 <- performance(pred_min02,"tpr","fpr")
+##auc_min03 = performance(pred_min03,"auc")@y.values[[1]]
+##perf_min03 <- performance(pred_min03,"tpr","fpr")
+##auc_min04 = performance(pred_min04,"auc")@y.values[[1]]
+##perf_min04 <- performance(pred_min04,"tpr","fpr")
+
+##plot(perf_min01,colorize=FALSE, col="blue") 
+##plot(perf_min02,colorize=FALSE, col="red",add = T)
+##plot(perf_min03,colorize=FALSE, col="pink",add = T) 
+##plot(perf_min04,colorize=FALSE, col="orange",add = T)
+##lines(c(0,1),c(0,1),col = "gray", lty = 4 )
+##text(0.8,0.2, labels = paste0("AUC = ",round(auc_min01,3)),col = "blue")
+##text(0.8,0.3, labels = paste0("AUC = ",round(auc_min02,3)),col = "red")
+##text(0.8,0.4, labels = paste0("AUC = ",round(auc_min03,3)),col = "pink")
+##text(0.8,0.5, labels = paste0("AUC = ",round(auc_min04,3)),col = "orange")
+
+###Validation in the external corhort
+testo <- read.table("LIHC-tpm-Tumor-s.txt",sep = "\t",quote = "\"'",header = T,row.names = 1)
+test_metao <- read.table("ICGCLIRIJP-clinic-s.txt",sep = "\t",quote = "\"'",header = T)
+testo<-testo[test_metao$id]
+xxo <- ""
+xxo <- t(testo)
+xxo <- as.data.frame(xxo)
+xxo$risk <-(0.004549632*xxo$FNDC4+0.006859035*xxo$PKIB-0.215215851*xxo$MIR3609+0.004534235*xxo$PLEKHA4-0.05629549*xxo$ANKRD24-0.009974964*xxo$CEACAM19-0.050176196*xxo$DIO3OS-0.045030993*xxo$UBASH3A+0.017597103*xxo$KCNE1L+0.006024639*xxo$KDM5B-0.503357872*xxo$C12orf68-0.059899642*xxo$XCR1)
+
+xxo <- cbind(xxo,test_metao)
+xxo$time <- xxo$time/30
+#####Determine the optimal cutpoint of variables
+res.cutxo <- surv_cutpoint(xxo, time = "time", event = "status",
+                          variables = "risk")
+summary(res.cutxo)
+#####Plot cutpoint for DEPDC1
+plot(res.cutxo, "risk", palette = "npg")
+#####Categorize variables
+res.catxo <- surv_categorize(res.cutxo)
+head(res.catxo)
+#####Fit survival curves and visualize
+library("survival")
+fito <- survfit(Surv(time, status) ~risk, data = res.catxo)
+ggsurvplot(fito, data = res.catxo, risk.table = TRUE, conf.int = TRUE,pval = TRUE)
+
+xo <- ""
+xo <- data.frame(xxo$time)
+colnames(xo) <- "time"
+
+xo$event <- xxo$status
+xo$risk <- xxo$risk
+
+re01o <- data.frame(xo)
+re01o[re01o$time>24,][2] <- 0
+re02o <- data.frame(xo)
+re02o[re02o$time>36,][2] <- 0
+re03o <- data.frame(xo)
+re03o[re03o$time>48,][2] <- 0
+re04o <- data.frame(xo)
+re04o[re04o$time>60,][2] <- 0
+
+pred_min04o <- prediction(re04o$risk,re04o$event)
+pred_min03o <- prediction(re03o$risk,re03o$event)
+pred_min02o <- prediction(re02o$risk,re02o$event)
+pred_min01o <- prediction(re01o$risk,re01o$event)
+
+
+
+auc_min01o = performance(pred_min01o,"auc")@y.values[[1]]
+perf_min01o <- performance(pred_min01o,"tpr","fpr")
+auc_min02o = performance(pred_min02o,"auc")@y.values[[1]]
+perf_min02o <- performance(pred_min02o,"tpr","fpr")
+auc_min03o = performance(pred_min03o,"auc")@y.values[[1]]
+perf_min03o <- performance(pred_min03o,"tpr","fpr")
+auc_min04o = performance(pred_min04o,"auc")@y.values[[1]]
+perf_min04o <- performance(pred_min04o,"tpr","fpr")
+
+plot(perf_min01o,colorize=FALSE, col="blue") 
+plot(perf_min02o,colorize=FALSE, col="red",add = T)
+plot(perf_min03o,colorize=FALSE, col="pink",add = T) 
+plot(perf_min04o,colorize=FALSE, col="orange",add = T)
+lines(c(0,1),c(0,1),col = "gray", lty = 4 )
+text(0.8,0.2, labels = paste0("AUC = ",round(auc_min01o,3)),col = "blue")
+text(0.8,0.3, labels = paste0("AUC = ",round(auc_min02o,3)),col = "red")
+text(0.8,0.4, labels = paste0("AUC = ",round(auc_min03o,3)),col = "pink")
+text(0.8,0.5, labels = paste0("AUC = ",round(auc_min04o,3)),col = "orange")
+
+######4. Nomogram, ROC and DCA analysis
+tcgadata <- read.table("tcgaclinic.txt",sep = "\t",quote = "\"'",header = T)
+tcgadata$sex <- tcgadata$gender
+tcgadata$gender <- NULL
+tcgadata$Time <- NULL
+tcgadata$stage <- tcgadata$stage_event_tnm_categories
+tcgadata$stage_event_tnm_categories <- NULL
+tcgadata$event <- NULL
+tcgadata$status <- tcgadata$status-1
+icgcdata <- test_metao
+icgcdata$risk <- xxo$risk
+
+
+######nomogram
+library(rms)
+tcgadata$sex <- as.factor(tcgadata$sex)
+tcgadata$stage <- as.factor(tcgadata$stage)
+tcgadata$status <- as.factor(tcgadata$status) 
+tcgarms <- tcgadata
+tcgarms$status 
+tcgarms$stage
+
+tcgarms$stage
+labels(tcgarms$stage)
+
+class(icgcdata$sex)
+icgcdata$sex <- as.factor(icgcdata$sex)
+icgcdata$stage <- as.factor(icgcdata$stage)
+icgcdata$status <- as.factor(icgcdata$status) 
+
+
+write.table(tcgarms, "tcganomo.txt",sep = "\t",quote = F, row.names = F)
+dd <- datadist(tcgarms)
+options(datadist="dd")
+summary(dd)
+f <- cph(Surv(time, status==1) ~ sex + risk, x=T, y=T, surv=T, data=tcgarms, time.inc=36)
+surv <- Survival(f)
+summary(f)
+f
+nom <- nomogram(f, fun=list(function(x) surv(36, x), function(x) surv(48, x), function(x) surv(60, x)), lp=F, funlabel=c("3-year survival", "4-year survival", "5-year survival"), fun.at=c(0.9, 0.8, 0.7, 0.6, 0.5,0.4,0.3,0.2,0.1))
+nom$`4-year survival`
+plot(nom)
+nomm <- nomogram(f, fun=list(function(x) surv(36, x), function(x) surv(48, x), function(x) surv(60, x)), lp=F, funlabel=c("3-year survival", "4-year survival", "5-year survival"),fun.at=c(0.9, 0.8, 0.7, 0.6, 0.5,0.4,0.3,0.2,0.1))
+plot(nomm)
+summary(nomm)
+nomm$risk
+### (internal validation)
+
+#####(discrimination)
+set.seed(777)
+validate(f, method="boot", B=1000, dxy=T)
+rcorrcens(Surv(time, status==1) ~ predict(f), data = tcgadata)
+tcgacindex <- 1-0.225
+
+####C-index
+library(survival)
+###BiocManager::install("survcomp")
+library(survcomp)
+tcgarms$time
+cox <- coxph(Surv(time, status==1) ~ sex + risk, data = tcgarms)
+summary(cox)
+
+
+
+##### (calibration)
+f3 <- cph(Surv(time, status==1) ~ sex + risk, x=T, y=T, surv=T, data=tcgadata, time.inc=36)
+f3
+cal3 <- calibrate(f3, cmethod="KM",method="boot", u=36,m=60, B=1000)
+plot(cal3)
+f4 <- cph(Surv(time, status==1) ~ sex + risk, x=T, y=T, surv=T, data=tcgadata, time.inc=48)
+f4
+cal4 <- calibrate(f4, cmethod="KM",method="boot", u=48,m=60, B=1000)
+plot(cal4)
+f5 <- cph(Surv(time, status==1) ~ sex + risk, x=T, y=T, surv=T, data=tcgadata, time.inc=60)
+f5
+cal5 <- calibrate(f5, cmethod="KM",method="boot", u=60,m=60, B=1000)
+plot(cal5)
+
+##icgc
+icgcdata$time <- icgcdata$time/30
+write.table(icgcdata, "icgcnomo.txt",sep = "\t",quote = F, row.names = F)
+dd1 <- datadist(icgcdata)
+options(datadist="dd1")
+summary(dd1)
+f1 <- cph(Surv(time, status==1) ~ sex + stage + risk, x=T, y=T, surv=T, data=icgcdata)
+f1
+surv <- Survival(f1)
+nom1 <- nomogram(f1, fun=list(function(x) surv(24, x),function(x) surv(36, x), function(x) surv(48, x)), lp=F, funlabel=c("2-year survival", "3-year survival", "4-year survival"), fun.at=c(0.9, 0.8, 0.7, 0.6, 0.5,0.4,0.3,0.2,0.1))
+plot(nom1)
+set.seed(777)
+validate(f1, method="boot", B=1000, dxy=T)
+rcorrcens(Surv(time, status==1) ~ predict(f1), data = icgcdata)
+icgcindex <- 1-0.213
+
+cox0 <- coxph(Surv(time, status==1) ~ sex + stage + risk, data = icgcdata)
+summary(cox0)
+
+
+f31 <- cph(Surv(time, status==1) ~ sex + stage + risk, x=T, y=T, surv=T, data=icgcdata, time.inc=36)
+f31
+cal31 <- calibrate(f31, cmethod="KM",method="boot", u=36,m=58, B=1000)
+plot(cal31)
+f41 <- cph(Surv(time, status==1) ~ sex + stage + risk, x=T, y=T, surv=T, data=icgcdata, time.inc=48)
+f41
+cal41 <- calibrate(f41, cmethod="KM",method="boot", u=48,m=60, B=1000)
+plot(cal41)
+f51 <- cph(Surv(time, status==1) ~ sex + stage + risk, x=T, y=T, surv=T, data=icgcdata, time.inc=24)
+f51
+cal51 <- calibrate(f51, cmethod="KM",method="boot", u=24,m=60, B=1000)
+plot(cal51)
+
+
+###DCA analysis
+###install.packages("rmda")
+###install.packages("rmda", lib="C:\\Users\\Public\\Downloads")
+###library(devtools) 
+###.libPaths("C:/Users/Public/Downloads")
+###install_github("mdbrown/DecisionCurve")
+library(rmda)
+###install.packages("DecisionCurve", lib="C:\\Users\\Public\\Downloads")
+###library("DecisionCurve")
+help(decisionCurve)
+example(decisionCurve)
+###install.packages("DecisionCurve")
+
+data(dcaData)
+summary(data("dcaData"))
+set.seed(123)
+tcgadata$status <- as.numeric(tcgadata$status)
+icgcdata$status <- as.numeric(icgcdata$status)
+icgcdata$status <- icgcdata$status -1
+baseline.model <- decision_curve(status~sex + stage,
+                                 data = icgcdata,
+                                 thresholds = seq(0, 1, by = .005),
+                                 bootstraps = 10)
+#plot using the defaults
+plot_decision_curve(baseline.model,  curve.names = "baseline model")
+
+set.seed(123)
+full.model <- decision_curve(status~sex + stage + risk,
+                             data = icgcdata,
+                             thresholds = seq(0, 1, by = .005),
+                             bootstraps = 10)
+
+risk.model <- decision_curve(status~risk,
+                             data = icgcdata,
+                             thresholds = seq(0, 1, by = .005),
+                             bootstraps = 10)
+
+stage.model <- decision_curve(status~stage,
+                             data = icgcdata,
+                             thresholds = seq(0, 1, by = .005),
+                             bootstraps = 10)
+# for lwd, the first two positions correspond to the decision curves, then 'all' and 'none'
+plot_decision_curve( list(baseline.model, full.model),
+                     curve.names = c("Baseline model", "Full model"),
+                     col = c("blue", "red"),
+                     lty = c(1,2),
+                     lwd = c(3,2, 2, 1),
+                     legend.position = "bottomright")
+
+pdf('icgc.pdf')
+plot_decision_curve( list(baseline.model, full.model),
+                     curve.names = c("Baseline model", "Full model"),
+                     col = c("blue", "red"),
+                     confidence.intervals = FALSE,  #remove confidence intervals
+                     cost.benefit.axis = FALSE, #remove cost benefit axis
+                     legend.position = "topright") #remove the legend
+dev.off()
+#Set specific cost:benefit ratios.
+pdf('a.pdf')
+plot_decision_curve( list(baseline.model, full.model),
+                     curve.names = c("Baseline model", "Full model"),
+                     col = c("blue", "red"),
+                     cost.benefits = c("1:1000", "1:4", "1:9", "2:3", "1:3"),
+                     legend.position = "topright")
+dev.off()
+#Plot net benefit instead of standardize net benefit.
+pdf('bbc.pdf')
+plot_decision_curve( list(baseline.model, full.model, risk.model, stage.model),
+                     curve.names = c("Baseline model", "Full model", "risk.model", "stage.model"),
+                     col = c("blue", "red","orange","gray"),
+                     confidence.intervals = FALSE,  #remove confidence intervals
+                     ylim = c(0, 0.25),
+                     cost.benefit.axis = FALSE,
+                     standardize = FALSE, #plot Net benefit instead of standardized net benefit
+                     legend.position = "topright")
+dev.off()

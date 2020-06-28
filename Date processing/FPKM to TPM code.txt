@@ -1,0 +1,12 @@
+##FPKM to TPM
+expMatrix <- read.table("LIHC-FPKM-Noted.txt",sep = "\t", header = TRUE, quote = "\"'")
+
+fpkmToTpm <- function(fpkm)
+{
+  exp(log(fpkm) - log(sum(fpkm)) + log(1e6))
+}
+
+tpms <- apply(expMatrix,2,fpkmToTpm)
+tpms[1:3,]
+colSums(tpms)
+write.table(tpms,"TCGA-LIHC-tpm.txt",sep = "\t",quote = FALSE,row.names = TRUE)

@@ -1,0 +1,23 @@
+###Please modify the format according to the example file in advance.
+###Sample data file name is 'LIHC-Fraction.txt'
+
+rm(list=ls())
+setwd("C:\\Users\\szlil\\Desktop\\violinplot")
+library(ggplot2)
+library(ggpubr)
+windowsFonts(Times=windowsFont("Times New Roman"))
+
+datap <- read.table("LIHC-Fraction.txt",sep = "\t",quote = "\"'",header = T)
+datap$Cell.Type <- gsub("\\.","-",datap$Cell.Type)
+p <- ggplot(data = datap, mapping = aes(x = Cell.Type, y = Percentage))
+p <- p + geom_violin(aes(x = Cell.Type,y = Percentage,fill = Mixture),position = position_dodge(0.8),size = 0.4,trim = FALSE)
+p
+p <- p + geom_jitter(aes(scat_adj+dist_cat_n,Percentage,fill=Mixture),position = position_jitter(0.1,0), shape = 21, size = 0.8)
+compare_means(Percentage~Mixture, data=datap, group.by = "Cell.Type")
+p <-p + stat_compare_means(aes(group=Mixture), label = "p.signif")                                                                            
+p <- p +  ggtitle("TCGA")                            
+###Immune cell subset proportions
+p <- p + theme(plot.title=element_text(hjust=0.5))+ theme(legend.title = element_text(face = "bold"))
+p <- p + theme(text=element_text(family="Times", face="bold", size=12)) 
+p <- p + labs(x = "n = 37 : 269") 
+p

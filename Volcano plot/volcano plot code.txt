@@ -1,0 +1,40 @@
+###Sample data file name is 'All_results.csv'
+rm(list=ls())
+setwd("C:\\Users\\szlil\\Desktop\\DEG&GO&KEGG&GSEA")
+library(ggplot2)
+diff <- read.csv("All_results.csv",header = T)
+
+logFC <- diff$log2FoldChange
+padj <- diff$padj
+
+
+
+data <- data.frame(logFC=logFC,padj=padj)
+data<-na.omit(data)
+data$sig[(data$padj > 0.05|(data$logFC < 2)&(data$logFC > -2))] <- "no"
+data$sig[data$padj <= 0.05 & data$logFC > 2] <- "up"
+data$sig[data$padj <= 0.05 & data$logFC < -2] <- "down"
+
+min(data$logFC)
+write.table(data,"data.txt",sep = "\t",quote = F,row.names = T)
+# Choose the maximum value as the upper and lower boundary of xlim
+x_lim <- max(logFC,-logFC)
+
+library(ggplot2)
+library(RColorBrewer)
+pdf(file = "LIHC_volcano.pdf",width=8,height=8)
+theme_set(theme_bw())
+p <- ggplot(data,aes(logFC,-1*log10(padj),
+                     color = sig))+geom_point()+
+  xlim(-5,5) +  labs(x="log2(FoldChange)",y="-log10(FDR)")
+p <- p + scale_color_manual(values =c("#0072B5","grey","#BC3C28"))+
+  geom_hline(yintercept=-log10(0.05),linetype=4)+
+  geom_vline(xintercept=c(-2,2),linetype=4)
+p <- p +theme(panel.grid =element_blank())+
+  theme(axis.line = element_line(size=0))+ylim(0,15)
+p <- p  +guides(colour = FALSE)
+p <- p +theme(axis.text=element_text(size=20),axis.title=element_text(size=20))
+p
+dev.off()
+print(p)
+

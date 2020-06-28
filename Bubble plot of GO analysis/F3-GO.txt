@@ -1,0 +1,21 @@
+Go Biological Process Complete	Homo sapiens - REFLIST (20851)	upload_1 (651)	genratio	upload_1 (expected)	upload_1 (over/under)	upload_1 (fold Enrichment)	upload_1 (raw P-value)	upload_1 (FDR)
+Tissue Development 	1777	109	0.061339336	55.48	+	1.96	4.89E-11	3.89E-08
+System Process 	1979	103	0.052046488	61.79	+	1.67	5.30E-07	1.41E-04
+Regulation Of Cell Differentiation 	1841	101	0.054861488	57.48	+	1.76	6.70E-08	2.60E-05
+Positive Regulation Of Multicellular Organismal Process 	1771	98	0.055335968	55.29	+	1.77	8.60E-08	3.12E-05
+Neurogenesis 	1664	95	0.057091346	51.95	+	1.83	2.55E-08	1.07E-05
+Regulation Of Cell Population Proliferation 	1645	94	0.057142857	51.36	+	1.83	3.15E-08	1.29E-05
+Generation Of Neurons 	1562	92	0.058898848	48.77	+	1.89	1.38E-08	6.27E-06
+Positive Regulation Of Developmental Process 	1390	92	0.06618705	43.4	+	2.12	4.98E-11	3.78E-08
+Regulation Of Transport 	1887	90	0.047694754	58.92	+	1.53	8.17E-05	7.03E-03
+Cell Development 	1623	89	0.054836722	50.67	+	1.76	4.56E-07	1.25E-04
+Response To Endogenous Stimulus 	1507	86	0.057067021	47.05	+	1.83	1.72E-07	5.36E-05
+Movement Of Cell Or Subcellular Component 	1544	85	0.055051813	48.21	+	1.76	7.95E-07	1.95E-04
+Negative Regulation Of Multicellular Organismal Process 	1210	84	0.069421488	37.78	+	2.22	4.27E-11	3.58E-08
+Reproduction 	1436	80	0.055710306	44.83	+	1.78	1.12E-06	2.56E-04
+Reproductive Process 	1433	80	0.055826936	44.74	+	1.79	1.09E-06	2.55E-04
+Animal Organ Morphogenesis 	974	80	0.082135524	30.41	+	2.63	3.33E-14	4.42E-11
+Negative Regulation Of Response To Stimulus 	1648	79	0.047936893	51.45	+	1.54	2.33E-04	1.51E-02
+Response To Oxygen-Containing Compound 	1599	79	0.049405879	49.92	+	1.58	7.89E-05	6.87E-03
+Biological Adhesion 	927	79	0.085221143	28.94	+	2.73	7.02E-15	1.40E-11
+Locomotion 	1305	76	0.058237548	40.74	+	1.87	3.77E-07	1.07E-04

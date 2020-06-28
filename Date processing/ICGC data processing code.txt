@@ -1,0 +1,24 @@
+###ICGC data processing
+###Please download the expression profiles on the ICGC official website in advance
+rm(list=ls())
+setwd("C:\\Users\\szlil\\Desktop\\HCCDB18\\icgc-dataset-1575983145570\\exp_seq.tsv")
+###Read the downloaded expression data and select valid information
+read.table("exp_seq.txt",sep = "\t",header =  TRUE)
+exp.seq <-read.table("exp_seq.txt",sep = "\t",header =  TRUE)
+expr <- ""
+expr$icgc_donor_id <- exp.seq$icgc_donor_id
+expr$gene_id <- exp.seq$gene_id
+expr$normalized_read_count <- exp.seq$normalized_read_count
+expr$submitted_sample_id <- exp.seq$submitted_sample_id
+expr.FKPM <- data.frame(exp.seq$icgc_donor_id,exp.seq$submitted_sample_id,exp.seq$gene_id,exp.seq$normalized_read_count)
+View(expr.FKPM)
+
+expr.FKPMS <-data.frame(exp.seq$submitted_sample_id,exp.seq$gene_id,exp.seq$normalized_read_count)
+
+###Long data to wide data
+library(reshape2)  
+data_wide <- dcast(expr.FKPMS,  exp.seq.gene_id~ exp.seq.submitted_sample_id, value.var='exp.seq.normalized_read_count')
+data <- data_wide
+data[is.na(data)] <- 0 
+write.table(data,"ICGC-LIRI-JP—ngs.txt",sep = "\t",quote = FALSE,row.names = FALSE)
+	

@@ -1,0 +1,18 @@
+###Here are several websites of GO analysis
+###For detailed  information, please visit their websites.
+###DAVID https://david.ncifcrf.gov/
+###GENEONTOLOGY http://geneontology.org/
+###KOBAS http://kobas.cbi.pku.edu.cn/kobas3/?t=1
+###gprofiler https://biit.cs.ut.ee/gprofiler/gost
+###Besides, R package "clusterProfiler" can be applied for GO analysis
+###Sample data file name is 'Gochord.txt'
+
+rm(list = ls())
+setwd("C:\\Users\\szlil\\Desktop\\GO-analysis")
+chord <- read.table("Gochord.txt",sep = "\t",quote = "\"'")
+###install.packages("GOplot")
+library(GOplot)
+dev.off()
+dev.new()
+GOChord(chord,gene.order = 'logFC',ribbon.col = brewer.pal((6), "Set3")[1:6],gene.size = 6,border.size = 0.01, gene.space = 0.25,lfc.col=c('firebrick3', 'white','royalblue3'),process.label = 12)
+GOChord

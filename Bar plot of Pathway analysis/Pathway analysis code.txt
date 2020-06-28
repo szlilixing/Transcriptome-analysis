@@ -1,0 +1,34 @@
+###Here are several websites of Pathway analysis
+###For detailed  information, please visit their websites.
+###DAVID https://david.ncifcrf.gov/
+###Rectome https://reactome.org/
+###KOBAS http://kobas.cbi.pku.edu.cn/kobas3/?t=1
+###Sample data file name is 'F3-Pathway.txt'
+
+rm(list=ls())
+setwd("C:\\Users\\szlil\\Desktop\\GO-KEGG-selected")
+rm(list=ls())
+library(ggplot2)
+library(Cairo)
+
+
+Pathway <- read.table("F3-Pathway.txt",header = T,sep="\t")
+
+Pathway$Input.number
+p <- ggplot(data=Pathway)+
+  geom_bar(aes(x=reorder(Term,Input.number),y=Input.number, fill=-log10(P.Value)), stat='identity') + 
+  coord_flip() +
+  scale_fill_gradient(expression(-log["10"](P.value)),low="red", high = "blue") +
+  xlab("") +
+  ylab("Counts") +
+  scale_y_continuous(expand=c(0, 0))+
+  theme(
+    axis.text.x=element_text(color="black",size=rel(1.5)),
+    axis.text.y=element_text(color="black", size=rel(1.6)),
+    axis.title.x = element_text(color="black", size=rel(1.6)),
+    legend.text=element_text(color="black",size=rel(1.0)),
+    legend.title = element_text(color="black",size=rel(1.1))
+    # legend.position=c(0,1),legend.justification=c(-1,0)
+    # legend.position="top",
+  )
+p

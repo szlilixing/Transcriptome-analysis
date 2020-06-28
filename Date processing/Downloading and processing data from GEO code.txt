@@ -1,0 +1,51 @@
+###Downloading and processing data from GEO (https://www.ncbi.nlm.nih.gov/gds/)
+
+rm(list=ls())
+setwd("C:\\Users\\szlil\\Desktop\\GEO-exp")
+library(GEOmirror)
+library(GEOquery)
+eSet=geoChina('GSE76427')
+eSet
+eSet=eSet[[1]]
+eSet
+probes_expr <- exprs(eSet);
+dim(probes_expr)
+head(probes_expr[,1:4])
+
+## pheno info
+phenoDat <- pData(eSet)
+head(phenoDat[,1:4])
+
+
+tt <- probes_expr
+pp <- phenoDat
+
+##Annotation
+library("illuminaHumanv4.db")
+#extract GeneID for probe
+probe2entrezID=toTable(illuminaHumanv4ENTREZID)
+#extract symbol for probe
+probe2symbol=toTable(illuminaHumanv4SYMBOL)
+#match probe to genesymbol
+tsymbol = probe2symbol[match(rownames(tt),probe2symbol$probe_id),]
+genesymbol <- tsymbol$symbol
+
+s <- toTable(illuminaHumanv4SYMBOL)
+ttr <- as.data.frame(tt) 
+ttr$probe_id <- rownames(tt)
+ttr_symbol <- merge(s, ttr, by = "probe_id")
+ttr_symbol$probe_id <- NULL
+ttr_symbol <- aggregate(x = ttr_symbol[,-1],by = list(ttr_symbol$symbol), FUN = max)
+
+ttt <- ttr_symbol
+rownames(ttt) <- ttt[,1]
+ttt[,1] <- NULL
+colnames(ttt) <- pp$title
+
+###Extracting tumor and normal data according to phenotype information
+n <- ttt[,1:115]
+t <- ttt[,116:167]
+clinic <- as.data.frame(phenoDat)
+write.table(clinic,"clinic-gse76427.txt",sep = "\t",quote = F)
+write.table(n,"normal-gse76427.txt",sep = "\t",quote = F)
+write.table(t,"tumor-gse76427.txt",sep = "\t",quote = F)

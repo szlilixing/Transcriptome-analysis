@@ -1,0 +1,40 @@
+###Here are several websites of GO analysis
+###For detailed  information, please visit their websites.
+###DAVID https://david.ncifcrf.gov/
+###GENEONTOLOGY http://geneontology.org/
+###KOBAS http://kobas.cbi.pku.edu.cn/kobas3/?t=1
+###gprofiler https://biit.cs.ut.ee/gprofiler/gost
+###Besides, R package "clusterProfiler" can be applied for GO analysis
+###Sample data file name is 'F3-GO.txt'
+
+rm(list=ls())
+library(Cairo)
+library(stringr)
+setwd("C:\\Users\\szlil\\Desktop\\GO-KEGG-selected")
+
+GO_BP = read.table("F3-GO.txt",header=T,sep="\t")
+
+library(ggplot2)
+
+GO_BP$Go.Biological.Process.Complete
+colnames(GO_BP)[3] <- "Gene"
+colnames(GO_BP)[7] <- "fold.Enrichment"
+colnames(GO_BP)[8] <- "Pvalue"
+  
+p <- ggplot(GO_BP,aes(x=fold.Enrichment,y=Go.Biological.Process.Complete)) + 
+  geom_point(aes(size=Gene,color=-1*log10(Pvalue)))+
+  scale_colour_gradient(low="green",high="red")+
+  labs(
+    color=expression(-log[10](P.value)),
+    size="Gene number",
+    x="Fold Enrichment"
+    # y="Pathway name",
+    # title="Pathway enrichment")
+  )+
+  theme_bw()+
+  theme(
+    axis.text.y = element_text(size = rel(1.3)),
+    axis.title.x = element_text(size=rel(1.3)),
+    axis.title.y = element_blank()
+  )
+p

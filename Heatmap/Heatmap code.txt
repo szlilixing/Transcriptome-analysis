@@ -1,0 +1,76 @@
+###Great thanks for the reviewer's guidance on parameters setting!
+###Sample data file name are 'ntdeseq_res.txt', 'group.txt' and 'DEG-genesymbol.txt'
+
+rm(list=ls())
+setwd("C:\\Users\\szlil\\Desktop\\DEG")
+tumor <- read.table("ntdeseq_res.txt",sep = "\t",quote = "\"'",header = T)
+group <- read.table("group.txt",sep = "\t",quote = "\"'",header = T)
+deg <- read.table("DEG-genesymbol.txt", sep = "\t",quote = "\"'",header = T)
+deg$Gene <- as.character(deg$Gene)
+tumordeg <- tumor[deg$Gene,]
+
+group$Sample <- as.character(group$Sample) 
+group$Type <- as.character(group$Type) 
+group$Type[232]
+high <- group[which(group$Type=="High"),] 
+low <- group[which(group$Type=="Low"),] 
+
+hdeg <- tumordeg[,high$Sample]
+ldeg <- tumordeg[,low$Sample]
+
+###Extracting DEGs and processing
+total1 <- cbind(hdeg,ldeg)
+write.table(total1,"total20.txt",sep = "\t",quote = F)
+
+###First, calculate the mean and standard deviation of each gene. 
+datasum <- "" 
+datasum <- total1
+datasum$mean <- apply(datasum[,1:269], 1, mean, na.rm=T) 
+datasum$SD <- apply(datasum[,1:269], 1, sd, na.rm=T) 
+datasum$mean[]
+###Then, for each sample, calculate the expression level as (gene A expression level of sample X – mean value of gene A) / (standard deviation of gene A). 
+###Finally, due with the outliners by set a cutoff at 3, which means those values > 3 or < -3 be limited as 3 or -3.
+for (i in 1:269) {
+  for (j in 1:755) {
+    datasum[j,i] <- (datasum[j,i]-datasum$mean[j])/(datasum$SD[j])
+    if(datasum[j,i] > 3){datasum[j,i] <- 3}
+    if(datasum[j,i] < -3){datasum[j,i] <- -3}
+  }
+}
+write.table(datasum,"datasum20.txt",sep = "\t",quote = F)
+
+
+datasum$mean <- NULL
+datasum$SD <- NULL
+
+annotation_col = data.frame( Mixture = c(rep("High", 135),rep("Low",134)) )
+annotation_col$Mixture <- as.factor(annotation_col$Mixture)
+rownames(annotation_col) <- colnames(datasum)
+
+library(pheatmap)
+###df <- log2(total1+1)
+df <- datasum
+#breaks
+##dd <- log2(datasum+1)
+
+bk <- c(seq(-3,-0.1,by=0.01),seq(0,3,by=0.01))
+###scale= "row", 
+ann_colors = list(Mixture = c(High = "#F34800", Low = "#00447E"))
+p1<-pheatmap(df,method="spearman", cluster_rows=T, cluster_cols=F,
+             color = colorRampPalette(c("navy", "white", "firebrick3"))(100),
+             show_colnames=F,show_rownames = F,
+             annotation_col = annotation_col, 
+             annotation_colors = ann_colors,gaps_col = 269)
+p1
+dev.off()
+p1
+save_pheatmap_pdf <- function(x, filename, width=7, height=7) {
+  stopifnot(!missing(x))
+  stopifnot(!missing(filename))
+  pdf(filename, width=width, height=height)
+  grid::grid.newpage()
+  grid::grid.draw(x$gtable)
+  dev.off()
+}
+
+save_pheatmap_pdf(p1, "test7550.pdf")

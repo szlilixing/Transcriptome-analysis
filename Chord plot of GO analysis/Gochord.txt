@@ -1,0 +1,12 @@
+tissue development 	regulation of cell differentiation 	regulation of cell population proliferation 	cell development 	biological adhesion 	locomotion	logFC
+BMP10	1	1	1	1	1	0	3.440850478
+NELL1	0	1	1	1	0	1	-2.186978322
+WNT2	1	1	1	0	0	0	2.179498178
+GDF2	1	1	1	0	0	0	4.028273551
+SLITRK6	1	0	0	1	0	0	2.187890623
+ADIPOQ	0	1	1	0	0	0	3.180540402
+STMN2	0	1	0	1	0	0	2.174978502
+CXCL14	0	1	0	0	0	1	2.290469083
+SOX1	0	0	0	1	0	1	2.39481188
+AMBN	0	0	1	0	1	0	-2.613597768
+

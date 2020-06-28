@@ -1,0 +1,88 @@
+###Downloading RNA-seq data from TCGA
+###For more details please refer to guidance of R package 'TCGAbiolinks'
+
+rm(list = ls())
+setwd("C:\\Users\\szlil\\Desktop\\GCR\\TCGA-pan\\TCGA-LIHC")
+library(TCGAbiolinks)
+library(plyr)
+library(biomaRt)
+library(SummarizedExperiment)
+query <- GDCquery(project = "TCGA-LIHC",
+                  data.category = "Transcriptome Profiling",
+                  data.type = "Gene Expression Quantification", 
+                  workflow.type = "HTSeq - FPKM")
+samplesDown <- getResults(query,cols=c("cases"))
+
+
+dataSmTP <- TCGAquery_SampleTypes(barcode = samplesDown,
+                                  typesample = "TP")
+dataSmNT <- TCGAquery_SampleTypes(barcode = samplesDown,
+                                  typesample = "NT")
+
+queryDown <- GDCquery(project = "TCGA-LIHC", 
+                      data.category = "Transcriptome Profiling",
+                      data.type = "Gene Expression Quantification", 
+                      workflow.type = "HTSeq - FPKM", 
+                      barcode = c(dataSmTP, dataSmNT))
+GDCdownload(query = queryDown)
+
+
+
+dataPrep1 <- GDCprepare(query = queryDown, save = TRUE, save.filename = "lgg_case.rda")
+
+dataPrep <- TCGAanalyze_Preprocessing(object = dataPrep1, 
+                                      cor.cut = 0.6,
+                                      datatype = "HTSeq - FPKM")
+date <- as.data.frame(dataPrep)  
+
+###Annotation
+library(org.Hs.eg.db)
+g2s=toTable(org.Hs.egSYMBOL)
+g2e=toTable(org.Hs.egENSEMBL)
+date$ensembl_id <- rownames(date)
+b=merge(date,g2e,by="ensembl_id",all.x=T)
+d=merge(b,g2s,by="gene_id",all.x=T)
+d=d[order(d$gene_id),]
+
+###Remove duplicate
+exprSet_symbol <- d 
+exprSet_symbol$gene_id <- NULL
+exprSet_symbol$ensembl_id <- NULL
+exprSet_symbol <- aggregate(x = exprSet_symbol,by = list(exprSet_symbol$symbol), FUN = max)
+
+rownames(exprSet_symbol) <- exprSet_symbol$symbol
+exprSet_symbol$symbol <- NULL
+exprSet_symbol$Group.1 <- NULL
+
+###save
+write.csv(dataPrep,file = "dataPrep_LIHC.csv",quote = FALSE)
+write.table(exprSet_symbol, "fpkmuq_LIHC.txt",sep = "\t",quote = FALSE)
+
+###Extracting tumor and normal data according to phenotype information
+expression <- exprSet_symbol
+expression0 <- expression 
+###colnames(expression0)
+###substring(colnames(expression0),14,15) %in% "01"
+dataTP <-expression0[substring(colnames(expression0),14,15) %in% "01",] 
+dataNT <-matrixl[substring(colnames(matrixl),14,15) %in% "11"]        
+
+
+
+
+###Access to clinical information
+query_c <- GDCquery(project = "TCGA-LIHC",
+                    data.category = "Clinical",
+                    file.type = "xml"
+)
+GDCdownload(query_c)
+
+clinical.patient <- GDCprepare_clinic(query_c,"patient")
+clinical.drug <- GDCprepare_clinic(query_c,"drug")
+clinical.radiation <- GDCprepare_clinic(query_c,"radiation")
+clinical.admin <- GDCprepare_clinic(query_c,"admin")
+clinical.stage_event <- GDCprepare_clinic(query_c,"stage_event")
+clinical.follow_up <- GDCprepare_clinic(query_c,"follow_up")
+
+write.table(clinical.patient,"clinical.patient.txt",sep = "\t",quote = FALSE)
+
+
